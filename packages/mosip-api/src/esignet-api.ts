@@ -85,8 +85,11 @@ const generateSignedJwt = async (clientId: string) => {
   const payload = {
     iss: clientId,
     sub: clientId,
-    aud: env.OPENID_PROVIDER_CLAIMS,
+    // aud: env.OPENID_PROVIDER_CLAIMS,
+    aud: env.ESIGNET_TOKEN_URL,
   };
+
+  console.log("JWT payload", payload);
 
   const decodeKey = Buffer.from(OIDP_CLIENT_PRIVATE_KEY, "base64")?.toString();
   const jwkObject = JSON.parse(decodeKey);
@@ -104,15 +107,20 @@ export const fetchToken = async ({
   clientId,
   redirectUri,
 }: FetchTokenProps) => {
+  const clientAssertion = await generateSignedJwt(clientId);
+  console.log("client assertion: ", clientAssertion);
   const body = new URLSearchParams({
     code: code,
     client_id: clientId,
-    redirect_uri: redirectUri,
+    redirect_uri: redirectUri?.split("?")[0] ?? redirectUri,
     grant_type: "authorization_code",
     client_assertion_type:
       "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-    client_assertion: await generateSignedJwt(clientId),
+    client_assertion: clientAssertion,
   });
+
+  console.log("fetch token request body", body.toString());
+  console.log("fetch token request url", env.ESIGNET_TOKEN_URL);
 
   const request = await fetch(env.ESIGNET_TOKEN_URL!, {
     method: "POST",
@@ -123,6 +131,7 @@ export const fetchToken = async ({
   });
 
   const response = await request.json();
+  console.log("fetch token response", response);
   return response as { access_token?: string };
 };
 
@@ -131,7 +140,7 @@ export const fetchLocationFromFHIR = <T = any>(
   method = "GET",
   body: string | undefined = undefined,
 ): Promise<T> => {
-  return fetch(`${env.OPENCRVS_GRAPHQL_GATEWAY_URL}${suffix}`, {
+  return fetch(`${env.OPENCRVS_GATEWAY_URL}/${suffix}`, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -153,23 +162,6 @@ const searchLocationFromFHIR = (name: string) =>
     `/locations?${new URLSearchParams({ name, type: "ADMIN_STRUCTURE" })}`,
   );
 
-const findAdminStructureLocationWithName = async (name: string) => {
-  const fhirBundleLocations = await searchLocationFromFHIR(name);
-
-  if ((fhirBundleLocations.entry?.length ?? 0) > 1) {
-    throw new Error(
-      "Multiple admin structure locations found with the same name",
-    );
-  }
-
-  if ((fhirBundleLocations.entry?.length ?? 0) === 0) {
-    // logger.warn("No admin structure location found with the name: " + name);
-    return null;
-  }
-
-  return fhirBundleLocations.entry?.[0].resource?.id;
-};
-
 function formatDate(dateString: string, formatStr = "PP") {
   const date = parse(dateString, "yyyy/MM/dd", new Date());
   if (!isValid(date)) {
@@ -181,27 +173,20 @@ function formatDate(dateString: string, formatStr = "PP") {
 }
 
 const pickUserInfo = async (userInfo: OIDPUserInfo) => {
-  // TODO: refactor starting with a leaf level search
-  // Dont throw any errors if location can't be found
-  /*const stateFhirId =
-    userInfo.address?.country &&
-    (await findAdminStructureLocationWithName(userInfo.address.country));*/
-
   return {
-    firstName: userInfo.given_name,
-    familyName: userInfo.family_name,
-    middleName: userInfo.middle_name,
-    gender: userInfo.gender,
+    name: {
+      firstname: userInfo.given_name,
+      middlename: userInfo.middle_name,
+      surname: userInfo.family_name,
+    },
+    gender: userInfo?.gender?.toLowerCase(),
     ...(userInfo.birthdate && {
+      dobUnknown: null,
       birthDate: formatDate(userInfo.birthdate, "yyyy-MM-dd"),
     }),
-    /*stateFhirId,
-    districtFhirId:
-      userInfo.address?.region &&
-      (await findAdminStructureLocationWithName(userInfo.address.region)),
-    locationLevel3FhirId:
-      userInfo.address?.locality &&
-      (await findAdminStructureLocationWithName(userInfo.address.locality)),*/
+    verificationStatus: "authenticated",
+    idType: null,
+    nid: null,
   };
 };
 
@@ -211,7 +196,7 @@ const decodeUserInfoResponse = (response: string) => {
 
 export const fetchUserInfo = async (accessToken: string) => {
   const request = await fetch(env.ESIGNET_USERINFO_URL, {
-    method: "POST",
+    method: "GET",
     headers: {
       Authorization: "Bearer " + accessToken,
     },
@@ -219,6 +204,7 @@ export const fetchUserInfo = async (accessToken: string) => {
 
   const response = await request.text();
   const decodedResponse = decodeUserInfoResponse(response);
+  console.log("Decoded response", JSON.stringify(decodedResponse));
   if (!decodedResponse) {
     throw new Error(
       "Something went wrong with the OIDP user info request. No user info was returned. Response from OIDP: " +
