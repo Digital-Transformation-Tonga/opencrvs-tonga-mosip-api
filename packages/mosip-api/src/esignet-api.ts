@@ -112,7 +112,7 @@ export const fetchToken = async ({
   const body = new URLSearchParams({
     code: code,
     client_id: clientId,
-    redirect_uri: "https://register.qa.crvs.gov.to/events/010101",//redirectUri?.split("?")[0] ?? redirectUri,
+    redirect_uri: redirectUri?.split("?")[0] ?? redirectUri,
     grant_type: "authorization_code",
     client_assertion_type:
       "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
