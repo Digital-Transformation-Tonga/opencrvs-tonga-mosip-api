@@ -6,6 +6,7 @@ import * as opencrvs from "../opencrvs-api";
 import { decryptMosipCredential } from "../websub/crypto";
 import { env } from "../constants";
 import { isBirthSubject } from "../websub/verify-vc";
+import { ActionType } from "@opencrvs/toolkit/events";
 
 export const CredentialIssuedSchema = z.object({
   publisher: z.string(),
@@ -58,8 +59,39 @@ export const credentialIssuedHandler = async (
     const { token, registrationNumber } =
       getTransactionAndDiscard(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
+    const actionInfo = await opencrvs.findEventActionType(eventId, { token });
+    console.log("actionInfo", JSON.stringify(actionInfo));
+    if (!actionInfo) {
+      request.log.info(
+        {
+          event: "websub.credential-issued.no-pending-action",
+          eventId,
+        },
+        "No pending action for event, skipping credential processing",
+      );
+      return reply
+        .send({
+          publisher: request.body.publisher,
+          topic: request.body.topic,
+          publishedOn: new Date().toISOString(),
+          event: {
+            id: request.body.event.id,
+            requestId: request.body.event.transactionId,
+            timestamp: new Date().toISOString(),
+            status: "RECEIVED",
+            url: "",
+          },
+        })
+        .status(200);
+    }
 
-    if (isBirthSubject(verifiableCredential.credentialSubject)) {
+    const { actionType, eventType } = actionInfo;
+
+    if (
+      isBirthSubject(verifiableCredential.credentialSubject) &&
+      actionType === ActionType.REGISTER && eventType === "adoption"
+    ) {
+      console.log("confirming adoption registration");
       opencrvs.confirmRegistration(
         {
           eventId,
@@ -70,6 +102,7 @@ export const credentialIssuedHandler = async (
         { token },
       );
     } else {
+      console.log("confirming birth or death registration");
       opencrvs.confirmRegistration(
         {
           eventId,
