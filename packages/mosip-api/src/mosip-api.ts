@@ -87,6 +87,11 @@ export const postBirthRecord = async ({
   metaInfo: MosipInteropPayload["metaInfo"];
   notification: MosipInteropPayload["notification"];
 }) => {
+  const trackingIdSplits = event.trackingId.includes("/")
+    ? event.trackingId.split("/")
+    : [];
+  const process = trackingIdSplits[1] === "CRVS_UPDATE" ? "CRVS_UPDATE" : "CRVS_NEW";
+  console.log("process: ", process);
   const requestBody = JSON.stringify(
     {
       id: "string",
@@ -96,7 +101,7 @@ export const postBirthRecord = async ({
         id: event.id,
         refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
         offlineMode: false,
-        process: "CRVS_NEW",
+        process: process,
         source: "OPENCRVS",
         schemaVersion: "0.100",
         fields: requestFields,
@@ -137,7 +142,7 @@ export const postBirthRecord = async ({
       version: "v1",
       request: {
         registrationId: event.id,
-        process: "CRVS_NEW",
+        process: process,
         source: "OPENCRVS",
         additionalInfoReqId: "",
         notificationInfo: {
