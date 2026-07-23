@@ -50,7 +50,7 @@ export const confirmRegistration = (
     actionId,
     registrationNumber,
     declaration: {
-      "child.nid": nationalId,
+      "linkedBirth.tongaPassId": nationalId,
     },
   });
 };

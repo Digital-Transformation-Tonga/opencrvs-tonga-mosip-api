@@ -89,10 +89,9 @@ export const credentialIssuedHandler = async (
 
     if (
       isBirthSubject(verifiableCredential.credentialSubject) &&
-      actionType === ActionType.REGISTER &&
-      (eventType === "birth" || eventType === "adoption")
+      actionType === ActionType.REGISTER && eventType === "adoption"
     ) {
-      console.log("confirming birth registration");
+      console.log("confirming adoption registration");
       opencrvs.confirmRegistration(
         {
           eventId,
@@ -103,7 +102,7 @@ export const credentialIssuedHandler = async (
         { token },
       );
     } else {
-      console.log("confirming death registration");
+      console.log("confirming birth or death registration");
       opencrvs.confirmRegistration(
         {
           eventId,
