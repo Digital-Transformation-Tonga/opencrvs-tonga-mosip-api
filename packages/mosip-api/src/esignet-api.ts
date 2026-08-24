@@ -173,17 +173,23 @@ function formatDate(dateString: string, formatStr = "PP") {
 }
 
 const pickUserInfo = async (userInfo: OIDPUserInfo) => {
+  const nameParts = userInfo.name?.trim().split(/\s+/).filter(Boolean) ?? [];
+
   return {
     sub: userInfo.sub, // usually holds the PSUT
     name: {
-      firstname: userInfo.name?.split(" ")[0],
-      surname: userInfo.name?.split(" ").at(-1),
+      firstname: nameParts[0],
+      middleName: nameParts.slice(1, -1).join(" "),
+      surname: nameParts.at(-1),
     },
     gender: userInfo?.gender?.toLowerCase(),
     ...(userInfo.birthdate && {
       dobUnknown: null,
       birthDate: formatDate(userInfo.birthdate, "yyyy-MM-dd"),
     }),
+    address: userInfo?.address,
+    email: userInfo?.email,
+    phoneNo: userInfo?.phone_number,
     verificationStatus: "authenticated",
     idType: null,
     nid: null,
