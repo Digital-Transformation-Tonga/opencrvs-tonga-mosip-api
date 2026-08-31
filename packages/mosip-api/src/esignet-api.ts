@@ -179,7 +179,7 @@ const pickUserInfo = async (userInfo: OIDPUserInfo) => {
     sub: userInfo.sub, // usually holds the PSUT
     name: {
       firstname: nameParts[0],
-      middleName: nameParts.slice(1, -1).join(" "),
+      middlename: nameParts.slice(1, -1).join(" "),
       surname: nameParts.at(-1),
     },
     gender: userInfo?.gender?.toLowerCase(),
