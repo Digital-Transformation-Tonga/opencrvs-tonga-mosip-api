@@ -10,6 +10,7 @@ const BirthSubject = z.object({
 });
 
 const DeathSubject = z.object({
+  VID: z.string().optional(),
   id: z.string().url(),
   vcVer: z.literal("VC-V1"),
 });

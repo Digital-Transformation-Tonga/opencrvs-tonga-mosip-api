@@ -18,6 +18,10 @@ export const env = cleanEnv(process.env, {
     devDefault: "http://localhost:7070",
     desc: "The URL of the OpenCRVS GraphQL Gateway",
   }),
+  COUNTRY_CONFIG_URL: str({
+    devDefault: "http://localhost:3040",
+    desc: "OpenCRVS country config URL. Used to forward the TongaPass for the MOH notification (never stored)",
+  }),
   OPENCRVS_PUBLIC_KEY_URL: str({
     devDefault: "http://localhost:4040/.well-known",
     desc: "OpenCRVS public key URL. Used to verify JWT authenticity",

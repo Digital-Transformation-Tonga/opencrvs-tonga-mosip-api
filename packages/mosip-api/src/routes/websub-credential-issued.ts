@@ -6,7 +6,7 @@ import * as opencrvs from "../opencrvs-api";
 import { decryptMosipCredential } from "../websub/crypto";
 import { env } from "../constants";
 import { isBirthSubject } from "../websub/verify-vc";
-import { ActionType } from "@opencrvs/toolkit/events";
+import { ActionType, EventDocument } from "@opencrvs/toolkit/events";
 
 export const CredentialIssuedSchema = z.object({
   publisher: z.string(),
@@ -103,14 +103,38 @@ export const credentialIssuedHandler = async (
       );
     } else {
       console.log("confirming birth or death registration");
-      opencrvs.confirmRegistration(
+      const registeredEvent = (await opencrvs.confirmRegistration(
         {
           eventId,
           actionId,
           registrationNumber,
         },
         { token },
-      );
+      )) as EventDocument;
+
+      // Forward the TongaPass to country config for the MOH notification.
+      // Passed through only, never stored in OpenCRVS.
+      // Not awaited: the WebSub reply to MOSIP does not depend on it.
+      if (
+        actionType === ActionType.REGISTER &&
+        (eventType === "birth" || eventType === "death")
+      ) {
+        void opencrvs
+          .notifyCountryConfigMosipRegistered(
+            {
+              event: registeredEvent,
+              registrationNumber,
+              tongaPassId: verifiableCredential.credentialSubject.VID,
+            },
+            { token },
+          )
+          .catch((error) =>
+            request.log.error(
+              { eventId, err: error },
+              "Failed to forward TongaPass to country config for MOH notification",
+            ),
+          );
+      }
     }
     return reply
       .send({
