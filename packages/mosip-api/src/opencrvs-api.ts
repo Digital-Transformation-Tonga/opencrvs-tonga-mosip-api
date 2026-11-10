@@ -55,6 +55,54 @@ export const confirmRegistration = (
   });
 };
 
+/**
+ * Sends the TongaPass to country config so it can be included in the MOH
+ * notification. The value is only passed through, never stored in OpenCRVS.
+ * Sent in the request body (not the URL) so it does not end up in access logs.
+ */
+export const notifyCountryConfigMosipRegistered = async (
+  {
+    event,
+    registrationNumber,
+    tongaPassId,
+  }: {
+    event: EventDocument;
+    registrationNumber: string;
+    tongaPassId?: string;
+  },
+  { token }: { token: string },
+) => {
+  const url = new URL(
+    `/trigger/events/${event.type}/mosip-registered`,
+    env.COUNTRY_CONFIG_URL,
+  );
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ event, registrationNumber, tongaPassId }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (res.ok) return;
+      if (res.status < 500 || attempt === maxAttempts) {
+        throw new OpenCRVSError(
+          `Country config mosip-registered failed [${res.status}] for event ${event.id}`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof OpenCRVSError || attempt === maxAttempts) {
+        throw error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+  }
+};
 
 export const findEventActionType = async (
   eventId: string,
